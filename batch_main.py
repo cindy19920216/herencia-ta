@@ -52,6 +52,7 @@ def run_batch(universe_df, out_dir="output", period="6mo", sleep_sec=1.0, demo=F
 
     for i, row in enumerate(universe_df.itertuples(index=False), start=1):
         code, name = str(row.code), str(row.name)
+        market_cap_100m = getattr(row, "market_cap_100m", None)
         # os.path.join 대신 "/"를 직접 씀: report_path/chart_path가 그대로 API의
         # 정적 파일 URL(/output/...)로도 쓰이므로 Windows에서도 슬래시로 통일해야 함.
         prefix = f"{out_dir}/{code}_{_safe_filename(name)}"
@@ -76,6 +77,7 @@ def run_batch(universe_df, out_dir="output", period="6mo", sleep_sec=1.0, demo=F
                 momentum=classify_momentum(snapshot),
                 report_path=report_path,
                 chart_path=chart_path,
+                market_cap_100m=market_cap_100m,
             )
             manifest.append(entry)
 

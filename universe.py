@@ -23,14 +23,19 @@ import requests
 DEFAULT_CACHE_PATH = os.path.join("data", "kospi200.csv")
 KIS_MASTER_URL = "https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip"
 
-# kospi_code.mst 레코드 뒤쪽 228자(2번째 파트)에서 'KOSPI200섹터업종' 필드 위치.
-# '0'이면 미편입, 그 외(1~9/A/B 섹터코드)면 KOSPI200 편입.
+# kospi_code.mst 레코드 뒤쪽 228자(2번째 파트) 필드 위치.
 # 주의: 한국투자증권이 공개한 공식 파서는 파일을 텍스트 모드로 줄 단위로 읽으면서
 # 각 줄 끝의 개행문자(\n)까지 rf2 = row[-228:]에 포함시키는 버릇이 있어, 그 파서 기준
-# 필드 폭 합(=18)과 실제 데이터 오프셋(=19)이 한 칸 어긋난다. 여기서는 개행 없는
-# 깨끗한 줄(splitlines() 결과)을 쓰므로 실측으로 검증된 오프셋 19를 그대로 사용한다.
+# 필드 폭 합과 실제 데이터 오프셋이 한 칸 어긋난다. 여기서는 개행 없는 깨끗한 줄
+# (splitlines() 결과)을 쓰므로, 공식 필드 폭 누적합에 +1 보정한 오프셋을 실측 검증해서 쓴다.
+#
+# 'KOSPI200섹터업종': '0'이면 미편입, 그 외(1~9/A/B 섹터코드)면 KOSPI200 편입.
 _KOSPI200_SECTOR_OFFSET = 19
 _KOSPI200_SECTOR_LEN = 1
+
+# '시가총액' 필드. 단위는 억원 (실측 검증: 종가 × 상장주수로 역산한 값과 일치).
+_MARKET_CAP_OFFSET = 213
+_MARKET_CAP_LEN = 9
 
 
 def fetch_kospi200_from_kis():
@@ -54,9 +59,13 @@ def fetch_kospi200_from_kis():
         name = head[21:].strip()
         sector = tail[_KOSPI200_SECTOR_OFFSET:_KOSPI200_SECTOR_OFFSET + _KOSPI200_SECTOR_LEN]
         if sector != "0":
-            rows.append({"code": code.zfill(6), "name": name})
+            mktcap_raw = tail[_MARKET_CAP_OFFSET:_MARKET_CAP_OFFSET + _MARKET_CAP_LEN].strip()
+            market_cap_100m = int(mktcap_raw) if mktcap_raw.isdigit() else None
+            rows.append({"code": code.zfill(6), "name": name, "market_cap_100m": market_cap_100m})
 
-    df = pd.DataFrame(rows, columns=["code", "name"]).sort_values("code").reset_index(drop=True)
+    df = pd.DataFrame(rows, columns=["code", "name", "market_cap_100m"]).sort_values(
+        "market_cap_100m", ascending=False
+    ).reset_index(drop=True)
     if df.empty:
         raise ValueError(
             "종목마스터 파일에서 KOSPI200 구성종목을 찾지 못했습니다. "

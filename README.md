@@ -1,26 +1,59 @@
 # Herencia 기술적 분석 파이프라인 (프로토타입)
 
-## 진행 상황 (다음에 이어서 하기) — 2026-07-21 기준
+## 진행 상황 (다음에 이어서 하기) — 2026-07-21 밤 기준
 
-**여기까지 한 것**
+**여기까지 한 것 (앞부분, 이미 배포까지 끝남)**
 1. KOSPI200 전 종목 일괄 실행용 `universe.py`/`export.py`/`batch_main.py` 추가 (2026-07-20).
 2. `universe.py` 데이터 소스 교체: pykrx의 KOSPI200 구성종목 조회가 2026-05 릴리스부터 KRX
    회원 로그인을 요구하게 되어(공급망 공격 아님 — PyPI 정식 배포본 해시 대조로 확인 완료),
    로그인이 필요 없는 한국투자증권 공개 종목마스터 파일(`kospi_code.mst`) 기반으로 교체.
-   `requirements.txt`에서 `pykrx` 제거, `requests` 추가.
-3. KOSPI200 200종목 전체 배치 실행 완료 — `output/manifest.json` (count=200, failed_count=0).
-   추세: 약세 118 · 혼조 56 · 강세 26 / 진입의견: 관망 125 · 매수 관심 70 · 매도·차익실현 관심 5.
-4. Herencia 연동 방식 결정 (사용자 선택: **서버리스 브리지**) → `api.py` (FastAPI) 추가.
-   로컬에서 `/health`, `/api/manifest`, `/api/stocks`, `/api/stocks/{code}`, 정적 파일
-   서빙(`/output/*`) 전부 curl로 동작 확인 완료. 배포용 `Procfile` 추가.
+3. KOSPI200 200종목 전체 배치 실행 완료, `api.py`(FastAPI 브리지) 작성.
+4. **GitHub 저장소 생성·push 완료**: `https://github.com/cindy19920216/herencia-ta`
+5. **Render 배포 완료**: `https://herencia-ta.onrender.com` (무료 플랜 — 비활성 시 슬립,
+   첫 요청 최대 50초 지연 가능). `output/`(배치 결과, 200종목 md/png)도 저장소에 커밋해서
+   Render가 실데이터를 서빙 중.
+6. **Herencia 앱(`C:\Users\Check\Desktop\APP`) 연동 완료**: 기업분석 탭 안에 있던 걸 빼서
+   **최상위 탭 "기술적 지표"**로 옮김. `자산현황` 탭은 나중에 다시 쓸 수 있어서 라우팅에서만
+   빼고 `AssetsTab.jsx` 파일은 그대로 둠. `src/app/api/screener/route.ts`(프록시+캐싱)와
+   `src/components/redesign/ScreenerScreen.jsx`(목록+검색+필터+종목 상세) 로컬 커밋 완료
+   (**Herencia 쪽은 아직 GitHub push 안 함** — Vercel 연결되어 있어서 push=배포라 확인 필요).
 
-**다음에 할 것 (미완료)**
-1. 실제 Render/Railway 등에 `api.py` 배포 (아래 "Herencia 편입 시 참고" 참고).
-   이 저장소는 아직 git 저장소가 아니라서, 배포 전에 git init + GitHub 연동이 먼저 필요할 수 있음.
-2. Herencia(Vercel) 쪽에서 배포된 API URL로 fetch하는 연동 코드 작성.
-3. CORS `allow_origins`를 현재 `["*"]`(전체 허용, 프로토타입용)에서 Herencia 실제 배포 도메인으로 좁히기.
-4. `output/manifest.json` 갱신 주기 정하기 — 지금은 로컬에서 `python batch_main.py`를
-   수동 실행해야 갱신됨. 크론(예: GitHub Actions 스케줄) 등으로 자동화할지 결정 필요.
+**지금 하던 작업 (미완료, 중간에 끊김) — 시가총액 순 정렬 + 상세 UI 개선**
+
+사용자 요청 3가지:
+1. 스크리너 화면 맨 위에 **"기술적 지표 알아보기"** — RSI/MACD 등 지표 설명해주는
+   화면(Herencia 톤으로) → **아직 시작 안 함**
+2. 종목을 **시가총액 순**으로 정렬 → **백엔드 절반 완료, 배포 전**
+3. 종목 상세(주가+기술적 지표) UI를 Herencia 탭 스타일에 맞게 재구성 → **아직 시작 안 함**
+
+시가총액 관련 진행 상태:
+- `kospi_code.mst`(한투 종목마스터) 뒤쪽 228자 파트에서 **시가총액 필드 위치를 실측 검증**함
+  (오프셋 213, 길이 9, 단위 **억원**). 삼성전자로 검증: 종가×상장주수로 역산한 값과
+  raw 필드 값이 일치 → `universe.py`에 `_MARKET_CAP_OFFSET`/`_MARKET_CAP_LEN` 상수로 반영,
+  `fetch_kospi200_from_kis()`가 이제 `market_cap_100m` 컬럼까지 만들고 시총 내림차순 정렬.
+- `export.py`(`build_stock_entry`)와 `batch_main.py`에 `market_cap_100m` 전달 로직 추가.
+- `api.py`의 `/api/stocks`에 `market_cap_100m` 필드 추가.
+- **여기까지는 코드만 바뀐 상태 — 아직 커밋 안 함** (`git status`로 `api.py`/`batch_main.py`/
+  `export.py`/`universe.py` 4개 modified 확인 가능).
+- `data/kospi200.csv` 캐시는 이미 새로 받아서 시총 컬럼 포함 확인함 (삼성전자·SK하이닉스·
+  현대차·LG에너지솔루션 순으로 실제 시총 순위와 일치하는 것까지 검증 완료).
+- **`output/manifest.json`은 아직 옛날 버전** (시가총액 필드 없음) — 200종목 배치를
+  다시 돌려야 하는데, 그 직전에 중단됨.
+
+**내일 이어서 할 순서**
+1. `python batch_main.py` 재실행 (200종목, network 필요, 수 분 소요) → `output/` 갱신.
+2. herencia-ta 저장소에 커밋 + push (`api.py`, `batch_main.py`, `export.py`, `universe.py`,
+   갱신된 `output/`) → Render Manual Deploy로 재배포.
+3. Herencia 앱 `ScreenerScreen.jsx`: 기본 정렬을 `market_cap_100m` 내림차순으로 변경
+   (`/api/screener`가 이미 이 필드를 받아오게 될 것이므로 프론트만 정렬 로직 추가하면 됨).
+4. `IndicatorGuideScreen.jsx`(가칭) 신규 작성 — RSI/MACD/볼린저밴드/ADX/스토캐스틱/
+   엘더임펄스/SMC존(Discount·Premium·Equilibrium)/VWAP/돈치안채널/피벗포인트/POC/
+   매수우위비율 등 `indicators.py`가 계산하는 지표들을 카테고리별로 설명. `ScreenerScreen`
+   맨 위에 진입 버튼 추가 (PanicBoomScreen 같은 오버레이+뒤로가기 패턴 참고).
+5. 종목 상세 UI(`StockDetail` 컴포넌트, 현재 `ScreenerScreen.jsx` 안에 있음) 재구성 —
+   지금은 4개 지표만 그리드로 보여주는데, 추세/모멘텀/변동성/거래량 등으로 그룹핑해서
+   Herencia 다른 탭(예: `CompanyDetailScreen`)과 톤 맞추기.
+6. Herencia 앱 GitHub push 여부 결정 (Vercel 연결 확인 후 — push하면 바로 프로덕션 배포될 수 있음).
 
 ---
 

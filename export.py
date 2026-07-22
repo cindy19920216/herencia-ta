@@ -40,13 +40,18 @@ def serialize_snapshot(snapshot):
 
 
 def build_stock_entry(code, name, market, snapshot, opinion, trend, momentum,
-                       report_path=None, chart_path=None):
-    """Herencia manifest.json에 들어갈 종목별 엔트리 하나를 생성한다."""
+                       report_path=None, chart_path=None, market_cap_100m=None):
+    """Herencia manifest.json에 들어갈 종목별 엔트리 하나를 생성한다.
+
+    market_cap_100m: 시가총액 (단위: 억원). 한투 종목마스터 기준 스냅샷 값이라
+    실시간이 아니며, KOSPI200 외 종목(개별 실행)은 None일 수 있다.
+    """
     return {
         "code": code,
         "name": name,
         "market": market,
         "as_of": _to_native(snapshot.get("date")),
+        "market_cap_100m": _to_native(market_cap_100m),
         "trend": trend,
         "momentum": momentum,
         "entry_opinion": opinion,

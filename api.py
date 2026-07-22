@@ -66,8 +66,8 @@ def get_manifest():
 def list_stocks():
     """종목 리스트만 가볍게 (indicators 상세 제외, 목록/뱃지 UI용)."""
     manifest = _load_manifest()
-    fields = ("code", "name", "market", "as_of", "trend", "momentum", "entry_opinion")
-    return [{k: s[k] for k in fields} for s in manifest["stocks"]]
+    fields = ("code", "name", "market", "as_of", "market_cap_100m", "trend", "momentum", "entry_opinion")
+    return [{k: s.get(k) for k in fields} for s in manifest["stocks"]]
 
 
 @app.get("/api/stocks/{code}")
