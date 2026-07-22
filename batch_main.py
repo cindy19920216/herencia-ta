@@ -65,7 +65,7 @@ def run_batch(universe_df, out_dir="output", period="6mo", sleep_sec=1.0, demo=F
                 from data_loader import load_ohlcv
                 df = load_ohlcv(code, market="KOSPI", period=period)
 
-            _, report_path, chart_path, snapshot = run_pipeline(df, name, out_prefix=prefix)
+            _, report_path, chart_path, history_path, snapshot = run_pipeline(df, name, out_prefix=prefix)
 
             entry = build_stock_entry(
                 code=code,
@@ -77,6 +77,7 @@ def run_batch(universe_df, out_dir="output", period="6mo", sleep_sec=1.0, demo=F
                 momentum=classify_momentum(snapshot),
                 report_path=report_path,
                 chart_path=chart_path,
+                history_path=history_path,
                 market_cap_100m=market_cap_100m,
             )
             manifest.append(entry)

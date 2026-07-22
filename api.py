@@ -81,3 +81,23 @@ def get_stock(code: str):
         status_code=404,
         detail=f"{code} 종목을 찾을 수 없습니다 (최근 KOSPI200 배치 결과에 없음).",
     )
+
+
+@app.get("/api/stocks/{code}/history")
+def get_stock_history(code: str):
+    """종목 하나의 캔들차트용 시계열 히스토리 (OHLCV + MA/BB/VWAP/RSI/MACD_HIST)."""
+    manifest = _load_manifest()
+    for s in manifest["stocks"]:
+        if s["code"] == code:
+            history_path = s.get("history_path")
+            if not history_path or not os.path.exists(history_path):
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"{code} 종목의 히스토리 파일이 없습니다.",
+                )
+            with open(history_path, encoding="utf-8") as f:
+                return json.load(f)
+    raise HTTPException(
+        status_code=404,
+        detail=f"{code} 종목을 찾을 수 없습니다 (최근 KOSPI200 배치 결과에 없음).",
+    )

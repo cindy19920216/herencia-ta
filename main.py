@@ -11,12 +11,14 @@ Claude 샌드박스처럼 외부망이 막힌 환경에서는 --demo 플래그�
 """
 
 import argparse
+import json
 import numpy as np
 import pandas as pd
 
 from indicators import compute_all_indicators
 from report import generate_report
 from chart import render_chart
+from export import serialize_history
 
 
 def make_synthetic_ohlcv(n=180, start_price=70000, seed=42):
@@ -52,7 +54,11 @@ def run_pipeline(df, ticker_name, out_prefix="report"):
     chart_path = f"{out_prefix}.png"
     render_chart(ts, snapshot, chart_path, title=f"{ticker_name} 기술적 분석")
 
-    return report_text, report_path, chart_path, snapshot
+    history_path = f"{out_prefix}_history.json"
+    with open(history_path, "w", encoding="utf-8") as f:
+        json.dump(serialize_history(ts), f, ensure_ascii=False, separators=(",", ":"))
+
+    return report_text, report_path, chart_path, history_path, snapshot
 
 
 def main():
@@ -74,11 +80,12 @@ def main():
         df = load_ohlcv(args.code, market=args.market, period=args.period)
         name = args.name
 
-    report_text, report_path, chart_path, snapshot = run_pipeline(df, name, out_prefix=args.out)
+    report_text, report_path, chart_path, history_path, snapshot = run_pipeline(df, name, out_prefix=args.out)
 
     print(report_text)
     print(f"\n[저장됨] 리포트: {report_path}")
     print(f"[저장됨] 차트: {chart_path}")
+    print(f"[저장됨] 히스토리: {history_path}")
 
 
 if __name__ == "__main__":

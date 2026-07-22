@@ -388,5 +388,6 @@ def compute_all_indicators(df, swing_lookback=60):
         "poc": poc_info["poc"],
         "buy_volume_ratio": buy_ratio,
         "high_52w": out["High"].tail(252).max() if len(out) >= 5 else out["High"].max(),
+        "low_52w": out["Low"].tail(252).min() if len(out) >= 5 else out["Low"].min(),
     }
     return out, snapshot
