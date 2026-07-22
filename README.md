@@ -1,59 +1,45 @@
 # Herencia 기술적 분석 파이프라인 (프로토타입)
 
-## 진행 상황 (다음에 이어서 하기) — 2026-07-21 밤 기준
+## 진행 상황 — 2026-07-22 기준
 
-**여기까지 한 것 (앞부분, 이미 배포까지 끝남)**
-1. KOSPI200 전 종목 일괄 실행용 `universe.py`/`export.py`/`batch_main.py` 추가 (2026-07-20).
-2. `universe.py` 데이터 소스 교체: pykrx의 KOSPI200 구성종목 조회가 2026-05 릴리스부터 KRX
-   회원 로그인을 요구하게 되어(공급망 공격 아님 — PyPI 정식 배포본 해시 대조로 확인 완료),
-   로그인이 필요 없는 한국투자증권 공개 종목마스터 파일(`kospi_code.mst`) 기반으로 교체.
-3. KOSPI200 200종목 전체 배치 실행 완료, `api.py`(FastAPI 브리지) 작성.
-4. **GitHub 저장소 생성·push 완료**: `https://github.com/cindy19920216/herencia-ta`
-5. **Render 배포 완료**: `https://herencia-ta.onrender.com` (무료 플랜 — 비활성 시 슬립,
-   첫 요청 최대 50초 지연 가능). `output/`(배치 결과, 200종목 md/png)도 저장소에 커밋해서
-   Render가 실데이터를 서빙 중.
-6. **Herencia 앱(`C:\Users\Check\Desktop\APP`) 연동 완료**: 기업분석 탭 안에 있던 걸 빼서
-   **최상위 탭 "기술적 지표"**로 옮김. `자산현황` 탭은 나중에 다시 쓸 수 있어서 라우팅에서만
-   빼고 `AssetsTab.jsx` 파일은 그대로 둠. `src/app/api/screener/route.ts`(프록시+캐싱)와
-   `src/components/redesign/ScreenerScreen.jsx`(목록+검색+필터+종목 상세) 로컬 커밋 완료
-   (**Herencia 쪽은 아직 GitHub push 안 함** — Vercel 연결되어 있어서 push=배포라 확인 필요).
+**이번 세션에서 새로 끝낸 것**
+1. **시가총액 순 정렬 마무리** — `market_cap_100m` 필드를 담아 200종목 전체 배치 재실행,
+   커밋·push, Render 배포까지 완료.
+2. **일일 자동 갱신 파이프라인 구축(GitHub Actions)** — 처음엔 로컬 Windows 작업
+   스케줄러로 구성했으나 "PC가 꺼져 있어도 동작해야 한다"는 요구에 맞춰 GitHub Actions
+   스케줄 워크플로(`.github/workflows/daily_update.yml`)로 전환. 매일 07:00 KST(cron
+   22:00 UTC)에 GitHub 서버에서 `batch_main.py --refresh-universe`를 실행하고, 변경이
+   있으면 자동 commit + push.
+   **작업 중 발견한 문제**: Render 대시보드엔 "Auto-Deploy: On Commit"이라고 표시돼
+   있었지만, 실제로는 이 저장소에 Render의 GitHub App/웹훅이 전혀 연결돼 있지 않아서
+   push해도 재배포가 걸리지 않고 있었음(`github.com/settings/installations`,
+   저장소 Webhooks 탭이 둘 다 비어있는 것으로 원인 확정). 끊어진 GitHub 연동을 다시
+   맺는 대신, Render의 비공개 **Deploy Hook** URL을 GitHub Actions 저장소 시크릿
+   (`RENDER_DEPLOY_HOOK`)으로 저장해 워크플로 마지막 단계에서 직접 curl로 호출하도록
+   수정. 실제 커밋 → push → Deploy Hook → Live 배포까지 end-to-end로 검증 완료.
+3. **종목별 시계열 히스토리 JSON export 추가** — 지금까지 지표 계산에 쓰는 전체
+   시계열(`ts`, `indicators.compute_all_indicators()`의 첫 번째 반환값)을 정적 PNG
+   렌더링에만 쓰고 버리고 있었음. Herencia 앱의 종목 상세 차트를 정적 이미지 대신
+   인터랙티브 차트로 바꾸기 위해, `output/{code}_{name}_history.json`(OHLCV +
+   MA5/20/60 + BB상하단 + VWAP + RSI + MACD_HIST, 최근 180봉)을 종목별로 함께
+   생성하도록 파이프라인 확장. `GET /api/stocks/{code}/history` 신규 엔드포인트 추가.
+   `indicators.py` 스냅샷에 `low_52w`도 추가(52주 저점 대비 위치 계산용). 200종목
+   전체 실배치로 검증 완료, 프로덕션 배포 완료.
 
-**지금 하던 작업 (미완료, 중간에 끊김) — 시가총액 순 정렬 + 상세 UI 개선**
+**Herencia 앱(`C:\Users\Check\Desktop\APP`, 별도 저장소) 쪽 — 오늘 함께 진행한 작업**
+- 반응형 데스크톱 대시보드(좌측 사이드바 + 마스터-디테일 레이아웃) 추가. 모바일은
+  기존 풀스크린 앱 그대로 유지, 1024px 기준으로 분기.
+- 종목 상세 차트를 `<img>` 정적 PNG에서 `lightweight-charts` 기반 인터랙티브
+  캔들차트(MA/BB/VWAP 오버레이, 거래량, RSI·MACD 토글, 기간 선택)로 교체.
+  siglens.io 참고해 UI를 "차트 크게(좌) + 요약 사이드바(우)" 구조로 재구성.
+- 로컬 커밋까지 완료. Herencia 앱 저장소는 Vercel과 연결돼 있어 push=배포이므로
+  사용자 확인 후 별도로 push 진행.
 
-사용자 요청 3가지:
-1. 스크리너 화면 맨 위에 **"기술적 지표 알아보기"** — RSI/MACD 등 지표 설명해주는
-   화면(Herencia 톤으로) → **아직 시작 안 함**
-2. 종목을 **시가총액 순**으로 정렬 → **백엔드 절반 완료, 배포 전**
-3. 종목 상세(주가+기술적 지표) UI를 Herencia 탭 스타일에 맞게 재구성 → **아직 시작 안 함**
-
-시가총액 관련 진행 상태:
-- `kospi_code.mst`(한투 종목마스터) 뒤쪽 228자 파트에서 **시가총액 필드 위치를 실측 검증**함
-  (오프셋 213, 길이 9, 단위 **억원**). 삼성전자로 검증: 종가×상장주수로 역산한 값과
-  raw 필드 값이 일치 → `universe.py`에 `_MARKET_CAP_OFFSET`/`_MARKET_CAP_LEN` 상수로 반영,
-  `fetch_kospi200_from_kis()`가 이제 `market_cap_100m` 컬럼까지 만들고 시총 내림차순 정렬.
-- `export.py`(`build_stock_entry`)와 `batch_main.py`에 `market_cap_100m` 전달 로직 추가.
-- `api.py`의 `/api/stocks`에 `market_cap_100m` 필드 추가.
-- **여기까지는 코드만 바뀐 상태 — 아직 커밋 안 함** (`git status`로 `api.py`/`batch_main.py`/
-  `export.py`/`universe.py` 4개 modified 확인 가능).
-- `data/kospi200.csv` 캐시는 이미 새로 받아서 시총 컬럼 포함 확인함 (삼성전자·SK하이닉스·
-  현대차·LG에너지솔루션 순으로 실제 시총 순위와 일치하는 것까지 검증 완료).
-- **`output/manifest.json`은 아직 옛날 버전** (시가총액 필드 없음) — 200종목 배치를
-  다시 돌려야 하는데, 그 직전에 중단됨.
-
-**내일 이어서 할 순서**
-1. `python batch_main.py` 재실행 (200종목, network 필요, 수 분 소요) → `output/` 갱신.
-2. herencia-ta 저장소에 커밋 + push (`api.py`, `batch_main.py`, `export.py`, `universe.py`,
-   갱신된 `output/`) → Render Manual Deploy로 재배포.
-3. Herencia 앱 `ScreenerScreen.jsx`: 기본 정렬을 `market_cap_100m` 내림차순으로 변경
-   (`/api/screener`가 이미 이 필드를 받아오게 될 것이므로 프론트만 정렬 로직 추가하면 됨).
-4. `IndicatorGuideScreen.jsx`(가칭) 신규 작성 — RSI/MACD/볼린저밴드/ADX/스토캐스틱/
-   엘더임펄스/SMC존(Discount·Premium·Equilibrium)/VWAP/돈치안채널/피벗포인트/POC/
-   매수우위비율 등 `indicators.py`가 계산하는 지표들을 카테고리별로 설명. `ScreenerScreen`
-   맨 위에 진입 버튼 추가 (PanicBoomScreen 같은 오버레이+뒤로가기 패턴 참고).
-5. 종목 상세 UI(`StockDetail` 컴포넌트, 현재 `ScreenerScreen.jsx` 안에 있음) 재구성 —
-   지금은 4개 지표만 그리드로 보여주는데, 추세/모멘텀/변동성/거래량 등으로 그룹핑해서
-   Herencia 다른 탭(예: `CompanyDetailScreen`)과 톤 맞추기.
-6. Herencia 앱 GitHub push 여부 결정 (Vercel 연결 확인 후 — push하면 바로 프로덕션 배포될 수 있음).
+**지금 당장 이어서 할 항목은 없음.** 다음에 시간 될 때 (선택 사항):
+- 인터랙티브 차트가 실서비스에서 하루 이상 문제없이 검증되면, 정적 PNG 생성 코드
+  (`chart.py`, `main.py`/`batch_main.py`의 관련 호출)를 완전히 제거해서 배치 실행
+  시간과 저장소 용량(현재 PNG가 대부분 차지)을 줄일 수 있음 — 계획은 세워뒀지만
+  이번 세션 범위에서는 보류.
 
 ---
 
@@ -173,6 +159,33 @@ Herencia 쪽에서는 이 JSON 하나를 정적 파일로 서빙하거나(아래
 
 ## 변경 이력
 
+### 2026-07-22
+- **일일 자동 갱신을 GitHub Actions로 전환**
+  로컬 Windows 작업 스케줄러(`Herencia_DailyUpdate`)로 먼저 구성했으나, 로그오프/PC
+  종료 상태에서도 돌아가야 한다는 요구에는 로컬 스케줄러가 근본적으로 한계가 있음
+  (완전 종료 상태에서 깨우려면 BIOS RTC 웨이크 알람이 필요한데 소프트웨어로 설정
+  불가·신뢰성 낮음). GitHub Actions 스케줄 워크플로(`.github/workflows/daily_update.yml`,
+  cron `0 22 * * *` = 07:00 KST)로 전환해서 GitHub 자체 서버에서 실행되게 하고, 로컬
+  작업 스케줄러는 제거. `permissions: contents: write` + `actions/checkout` 기본
+  자격증명으로 워크플로 자체가 commit/push까지 수행.
+  → 배포까지 자동화하려고 push 후 Render Auto-Deploy를 기대했으나 실제로 재배포가
+  안 걸림을 발견. 확인해보니 이 저장소엔 Render GitHub App/웹훅이 아예 연결돼 있지
+  않았음(설정 화면의 "On Commit" 표시와는 무관하게 알림을 받을 경로 자체가 없었음).
+  Render Deploy Hook URL을 `RENDER_DEPLOY_HOOK` 시크릿으로 저장하고 워크플로에서
+  변경사항이 있을 때만 `curl -X POST`로 직접 호출하도록 수정 — 수동 curl 테스트와
+  워크플로 실행(#1) 둘 다로 실제 배포까지 확인.
+- **종목별 시계열 히스토리 JSON export (`export.serialize_history`)**
+  `indicators.compute_all_indicators()`가 반환하는 전체 지표 시계열(`ts`)은 그동안
+  `render_chart()`로 PNG를 그리는 데만 쓰이고 버려지고 있었음. Herencia 앱 종목 상세를
+  정적 이미지 대신 인터랙티브 차트(lightweight-charts)로 바꾸기 위해, OHLCV + MA5/20/60
+  + BB상하단 + VWAP + RSI + MACD_HIST만 추려 `output/{code}_{name}_history.json`
+  (최근 180봉)으로 함께 내보내도록 `main.run_pipeline()`/`batch_main.py`를 확장하고,
+  `manifest.json` 엔트리에 `history_path` 필드 추가. `api.py`에 `GET
+  /api/stocks/{code}/history` 신규 엔드포인트. `indicators.py` 스냅샷에 `low_52w`도
+  추가(기존엔 `high_52w`만 있었음). 200종목 전체 실배치로 검증(count=200, failed=0).
+- 정적 PNG 생성(`chart.py`)은 안전망 삼아 이번엔 그대로 유지 — 인터랙티브 차트가
+  실서비스에서 검증되면 이후 별도로 제거 예정.
+
 ### 2026-07-21
 - **`universe.py` — KOSPI200 데이터 소스 교체 (pykrx → 한투 종목마스터)**
   `python batch_main.py --refresh-universe`가 "KRX 로그인 실패: KRX_ID 또는 KRX_PW
@@ -245,7 +258,8 @@ Herencia 쪽에서는 이 JSON 하나를 정적 파일로 서빙하거나(아래
 | `GET /api/manifest` | `output/manifest.json` 전체 (요약 통계 + 종목별 지표 스냅샷) |
 | `GET /api/stocks` | 종목 리스트만 가볍게 (지표 상세 제외, 목록/뱃지 UI용) |
 | `GET /api/stocks/{code}` | 종목 하나의 상세 결과 (없으면 404) |
-| `GET /output/{파일명}` | 종목별 리포트(.md)/차트(.png) 정적 파일 |
+| `GET /api/stocks/{code}/history` | 종목 하나의 캔들차트용 시계열 히스토리 (OHLCV+MA/BB/VWAP/RSI/MACD_HIST, 최근 180봉) |
+| `GET /output/{파일명}` | 종목별 리포트(.md)/차트(.png)/히스토리(.json) 정적 파일 |
 
 로컬 실행: `uvicorn api:app --reload` (localhost:8000)
 
@@ -259,8 +273,12 @@ CORS는 현재 `allow_origins=["*"]`(프로토타입용 전체 허용)로 되어
 `api.py`에서 Herencia 배포 도메인으로 좁혀야 함.
 
 **주의**: API 서버 자체는 `batch_main.py`를 실행하지 않는다 — 이미 생성된 `output/manifest.json`을
-읽어 서빙만 한다. 종목 결과를 최신으로 유지하려면 `batch_main.py`를 별도로 (로컬/크론 등에서)
-주기적으로 돌려서 `output/`을 갱신해야 함.
+읽어 서빙만 한다. 종목 결과 갱신은 **`.github/workflows/daily_update.yml`이 매일 07:00 KST에
+GitHub Actions에서 자동으로** `batch_main.py --refresh-universe` 실행 → commit/push →
+Render Deploy Hook 호출까지 처리한다(PC 상태와 무관하게 동작 확인 완료). 수동으로 즉시
+반영하고 싶으면 GitHub 저장소의 Actions 탭에서 `일일 KOSPI200 배치 갱신` 워크플로를
+`workflow_dispatch`로 수동 실행하거나, Render 대시보드 Settings에서 Deploy Hook URL을 복사해
+직접 `curl -X POST`로 호출하면 된다.
 
 데이터 소스도 참고할 점: yfinance는 KOSPI/KOSDAQ 커버리지가 완벽하지 않을 수 있어서
 (간혹 결측/지연), 실서비스로 갈 땐 KRX 공식 API나 QuantiWise 쪽 데이터로 교체하는 걸 권장해요.
